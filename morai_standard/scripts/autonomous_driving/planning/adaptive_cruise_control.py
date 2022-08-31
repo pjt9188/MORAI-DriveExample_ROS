@@ -22,7 +22,7 @@ class AdaptiveCruiseControl:
             object_type = object_info.type
             if object_type == 0:
                 distance_threshold = 4.35
-            elif object_type in [1, 2]:
+            elif object_type in [1, 2, -1]:     # object_type (0: Pedestrian, 1: NPC vehicle, 2: Static object (obstacle), -1: Ego-vehicle)
                 distance_threshold = 2.5
             elif object_type == 3:
                 if current_traffic_light and object_info.name == current_traffic_light[0] and not current_traffic_light[1] in [16, 48]:
@@ -49,7 +49,7 @@ class AdaptiveCruiseControl:
         if self.object_type == 0:
             print("ACC ON_Person")
             default_space = 8
-        elif self.object_type in [1, 2]:
+        elif self.object_type in [1, 2, -1]:        # object_type (0: Pedestrian, 1: NPC vehicle, 2: Static object (obstacle), -1: Ego-vehicle)
             print("ACC ON_Vehicle")
             default_space = 5
         elif self.object_type == 3:
