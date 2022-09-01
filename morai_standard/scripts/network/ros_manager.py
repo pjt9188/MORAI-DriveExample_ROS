@@ -12,10 +12,10 @@ from autonomous_driving.config.config import Config
 
 
 class RosManager:
-    def __init__(self, autonomous_driving):
+    def __init__(self, autonomous_driving, config_file = 'config.json'):
         self.autonomous_driving = autonomous_driving
 
-        config = Config()
+        config = Config(config_file)
         rospy.init_node("morai_standard", anonymous=True)
 
         self.traffic_light_control = config["map"]["traffic_light_control"]

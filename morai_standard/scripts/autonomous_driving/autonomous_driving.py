@@ -13,8 +13,8 @@ from .mgeo.calc_mgeo_path import mgeo_dijkstra_path
 
 
 class AutonomousDriving:
-    def __init__(self):
-        config = Config()
+    def __init__(self, config_file = 'config.json'):
+        config = Config(config_file = config_file)
 
         if config["map"]["use_mgeo_path"]:
             mgeo_path = mgeo_dijkstra_path(config["map"]["name"])
@@ -50,6 +50,7 @@ class AutonomousDriving:
         # adaptive cruise control를 활용한 속도 계획
         self.adaptive_cruise_control.check_object(local_path, object_info_dic_list, current_traffic_light)
         target_velocity = self.adaptive_cruise_control.get_target_velocity(vehicle_state.velocity, planned_velocity)
+        print("target velocity {}".format(target_velocity*3.6))
         # 속도 제어를 위한 PID control
         acc_cmd = self.pid.get_output(target_velocity, vehicle_state.velocity)
         # target velocity가 0이고, 일정 속도 이하일 경우 full brake를 하여 차량을 멈추도록 함.

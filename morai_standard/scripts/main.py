@@ -5,7 +5,12 @@ from autonomous_driving.autonomous_driving import AutonomousDriving
 
 
 def main():
-    autonomous_driving = AutonomousDriving()
+    # K-city 
+    # autonomous_driving = AutonomousDriving()
+    
+    # Scenarios
+    autonomous_driving = AutonomousDriving(config_file='map/V_RHT_HighwayJunction_1/CCRB4/config.json')
+    
     ros_manager = RosManager(autonomous_driving)
     ros_manager.execute()
 

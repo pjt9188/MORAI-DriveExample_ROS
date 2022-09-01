@@ -5,7 +5,8 @@
         "wheelbase": 2.8
     },
     "map": {
-        "name": "R_KR_PG_K-City",
+        "name": "V_RHT_HighwayJunction_1",
+        "scenario": "CCRB4",
         "traffic_light_control": true,
         "is_closed_path": true,
         "local_path_size": 50,
@@ -17,7 +18,7 @@
     },
     "planning": {
         "velocity_profile": {
-            "max_velocity": 60.0,
+            "max_velocity": 70,
             "road_friction": 0.15,
             "window_size": 25
         },
