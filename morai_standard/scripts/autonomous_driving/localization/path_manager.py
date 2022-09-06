@@ -74,6 +74,9 @@ class PathManager:
         #     print(v)
 
     def get_local_path(self, vehicle_state):
+        ''' 
+        reference waypoint에서 현재 차량 기준 local waypoint(global 좌표계) 및 target velocity 반환
+        '''
         # TODO: 최소값 구하는 로직 개선 필요.
         min_distance=float('inf')
         current_waypoint=0

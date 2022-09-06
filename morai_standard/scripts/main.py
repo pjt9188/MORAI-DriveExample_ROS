@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from network.ros_manager import RosManager
 from autonomous_driving.autonomous_driving import AutonomousDriving
-
+# from autonomous_driving.planning.lattice_planner import LatticePlanner
 
 def main():
     # K-city 

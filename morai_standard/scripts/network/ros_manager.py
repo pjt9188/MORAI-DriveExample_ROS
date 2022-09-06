@@ -26,6 +26,7 @@ class RosManager:
         self.count = 0
 
         self.vehicle_state = VehicleState()
+        self.ego_vehicle_status = EgoVehicleStatus()
         self.object_info_list = []
         self.traffic_light = []
 
@@ -39,7 +40,7 @@ class RosManager:
         while not rospy.is_shutdown():
             if self.is_status and self.is_object_info:
                 control_input, local_path = self.autonomous_driving.execute(
-                    self.vehicle_state, self.object_info_list, self.traffic_light
+                    self.vehicle_state, self.ego_vehicle_status, self.object_info_list, self.traffic_light
                 )
                 self._send_data(control_input, local_path)
         print("end simulation")
@@ -48,6 +49,7 @@ class RosManager:
         # publisher
         self.global_path_pub = rospy.Publisher('/global_path', Path, queue_size=1)
         self.local_path_pub = rospy.Publisher('/local_path', Path, queue_size=1)
+        self.lattice_path_pub = rospy.Publisher('/lattice_path', Path, queue_size=1)
         self.ctrl_pub = rospy.Publisher('/ctrl_cmd', CtrlCmd, queue_size=1)
         self.traffic_light_pub = rospy.Publisher("/SetTrafficLight", SetTrafficLight, queue_size=1)
         self.odom_pub = rospy.Publisher('/odom', Odometry, queue_size=1)
@@ -94,7 +96,21 @@ class RosManager:
         return odometry
 
     def vehicle_status_callback(self, data):
+        '''vehicle status callback
+        topic   : /Ego_topic
+        msg     : EgoVehicle Status
+            position    : x,y,z position in global coordintae
+            velocity    : x(longitudinal), y(lateral), z, velocity [m/s] in vehicle coordintae
+            accleration : x, y, z, acceleration [m/s^2] in vehicle coordintae
+
+            heading     : vehicle heading [deg]
+            accel       : gas pedal [0~1]
+            brake       : brake     [0~1]
+            wheel_angle : steering wheel angle [deg]
+        '''
         self.vehicle_state = VehicleState(data.position.x, data.position.y, np.deg2rad(data.heading), data.velocity.x)
+        self.ego_vehicle_status = data
+        # print(self.ego_vehicle_status)
         br = tf.TransformBroadcaster()
         br.sendTransform(
             (self.vehicle_state.position.x, self.vehicle_state.position.y, 0),

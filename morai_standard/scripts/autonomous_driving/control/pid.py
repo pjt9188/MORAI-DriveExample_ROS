@@ -29,7 +29,7 @@ class Pid:
         
         derivative_error = (error-self.previous_error)/self.sampling_time
 
-        print("rate : err = {}, Int err = {}, Der err ={}".format(error, self.integral_error, derivative_error))
+        # print("rate : err = {}, Int err = {}, Der err ={}".format(error, self.integral_error, derivative_error))
         output = self.p_gain*error + self.i_gain*self.integral_error + self.d_gain*derivative_error
         self.previous_error = error
         return output
