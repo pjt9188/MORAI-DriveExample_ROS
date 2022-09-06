@@ -6,9 +6,8 @@ from math import cos,sin,pi,sqrt,pow,atan2
 import numpy as np
 
 from morai_msgs.msg import EgoVehicleStatus, ObjectStatusList, ObjectStatus
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Point, Quaternion
 from nav_msgs.msg import Path
-
 
 '''
 lattice_planner은 충돌 회피 경로 생성 및 선택 예제입니다.
@@ -16,41 +15,66 @@ lattice_planner은 충돌 회피 경로 생성 및 선택 예제입니다.
 충돌이 예견될 경우 회피경로를 생성 및 선택 하고 새로운 지역경로(/lattice_path)를 Pulish합니다.
 
 노드 실행 순서 
-1. subscriber, publisher 선언
-2. 경로상의 장애물 탐색
-3. 좌표 변환 행렬 생성
-4. 충돌회피 경로 생성
-5. 생성된 모든 Lattice 충돌 회피 경로 메시지 Publish
-6. 생성된 충돌회피 경로 중 낮은 비용의 경로 선택
-7. 선택 된 새로운 지역경로 (/lattice_path) 메세지 Publish
+1. 경로상의 장애물 탐색
+2. 좌표 변환 행렬 생성
+3. 충돌회피 경로 생성
+4. 생성된 모든 Lattice 충돌 회피 경로 메시지 Publish
+5. 생성된 충돌회피 경로 중 낮은 비용의 경로 선택
+6. 선택 된 새로운 지역경로 self.optimal_lattice_path 출력
 '''
 class LatticePlanner:
+    """ Lattice Planner
+        object vars:
+            ego_vehicle_status
+            object_status_list
+            local_path : localization.point의 Point 객체의 list로 이루어진 local path
+    """
     def __init__(self):
-        rospy.init_node('lattice_planner', anonymous=True)
-
         self.ego_vehicle_status = EgoVehicleStatus()
-        self.local_path = Path()
         self.object_status_list = ObjectStatusList()
+        self.local_path = []
+        self.lattice_path_list = []
+        self.optimal_lattice_path = None
 
-        self.is_ego_vehicle_status = False
-        self.is_local_path = False
-        self.is_object_status_list = False
+        self.is_lattice_path_list = False
+    
+    def set_object_variables(self, ego_vehicle_status, object_status_list, local_path):
+        self.ego_vehicle_status = ego_vehicle_status
+        self.object_status_list = object_status_list
+        
+        # localization.point의 Point 객체의 list로 이루어진 local path를 nav_msg의 Path 객체 형태로 변환
+        self.local_path = Path()
+        self.local_path.header.frame_id = 'map'
+        for point in local_path:
+            pose_stamped = PoseStamped()
+            pose_stamped.pose.position = Point(x=point.x, y=point.y, z=0)
+            self.local_path.poses.append(pose_stamped)
+    
+    def get_optimal_lattice_path(self, ego_vehicle_status, object_status_list, local_path):
+        """ local path와 ego status, object status를 통해서 최적의 lattice Path 계산
+            Args: 
+                ego_vehicle_status : morai msg - EgoVehicleStatus
+                object_status_list : morai msg - ObjectStatusList
+                local_path         : localization.point의 Point 객체의 list로 이루어진 local path
 
-        #TODO: (1) subscriber, publisher 선언
-        rospy.Subscriber('/Ego_topic', EgoVehicleStatus, self.ego_vehicle_status_callback)
-        rospy.Subscriber('/Object_topic', ObjectStatusList, self.object_status_list_callback)
-        rospy.Subscriber('/local_path', Path, self.local_path_callback)
-        self.lattice_path_pub = rospy.Publisher('/lattice_path', Path, queue_size = 1)
+            return :
+                optimal_lattice_path : nav_msgs의 Path 객체 형태의 최적 lattice path
+        """
+        self.set_object_variables(ego_vehicle_status, object_status_list, local_path)
+        self.calc_lattice_path_list()
+        
+        # TODO : 생성한 Path list들 중에서 optimal path 선택
+        if self.is_lattice_path_list:
+            self.optimal_lattice_path = self.lattice_path_list[0]
+        else:
+            self.optimal_lattice_path = local_path
 
-        rate = rospy.Rate(30)   # 30hz
-        while not rospy.is_shutdown():
-            if self.is_ego_vehicle_status and self.is_local_path and self.is_object_status_list:
-                lattice_path = self.latticePlanner()
-            rate.sleep()
-
-    def latticePlanner(self):
+        return self.optimal_lattice_path
+    
+    def calc_lattice_path_list(self):
+        # Input variable 받기
         ref_path = self.local_path
-        out_path = []
+        lattice_path_list = []
         vehicle_pose_x = self.ego_vehicle_status.position.x
         vehicle_pose_y = self.ego_vehicle_status.position.y
         vehicle_velocity = self.ego_vehicle_status.velocity.x
@@ -102,7 +126,7 @@ class LatticePlanner:
             '''
             # Local 좌표계로 변경 후 3차곡선계획법에 의해 경로를 생성한 후 다시 Map 좌표계로 가져옵니다.
             # Path 생성 방식은 3차 방정식을 이용하며 lane_change_ 예제와 동일한 방식의 경로 생성을 하면 됩니다.
-            # 생성된 Lattice 경로는 out_path 변수에 List 형식으로 넣습니다.
+            # 생성된 Lattice 경로는 lattice_path_list 변수에 List 형식으로 넣습니다.
             # 충돌 회피 경로는 기존 경로를 제외하고 좌 우로 3개씩 총 6개의 경로를 가지도록 합니다.
 
             '''
@@ -149,7 +173,7 @@ class LatticePlanner:
                     read_pose.pose.orientation.w = 1
                     lattice_path.poses.append(read_pose)
 
-                out_path.append(lattice_path)
+                lattice_path_list.append(lattice_path)
 
             # look_distance의 2배 길이(2초 길이) 혹은 ref_path 길이 만큼 뒤에 lattice planner 추가
             add_point_size = min(look_distance*2, len(ref_path.poses))           
@@ -175,7 +199,7 @@ class LatticePlanner:
                         read_pose.pose.orientation.y = 0
                         read_pose.pose.orientation.z = 0
                         read_pose.pose.orientation.w = 1
-                        out_path[lane_num].poses.append(read_pose)
+                        lattice_path_list[lane_num].poses.append(read_pose)
                         
             #TODO: (5) 생성된 모든 Lattice 충돌 회피 경로 메시지 Publish
             '''
@@ -183,37 +207,13 @@ class LatticePlanner:
             # Rviz 창에서 시각화 하도록 합니다.
 
             '''
-            for i in range(len(out_path)):          
-                globals()['lattice_pub_{}'.format(i+1)] = rospy.Publisher('/lattice_path_{}'.format(i+1),Path,queue_size=1)
-                globals()['lattice_pub_{}'.format(i+1)].publish(out_path[i])
+            for i in range(len(lattice_path_list)):          
+                if 'lattice_pub_{}'.format(i+1) not in globals().keys():
+                    globals()['lattice_pub_{}'.format(i+1)] = rospy.Publisher('/lattice_path_{}'.format(i+1),Path,queue_size=1)
+                globals()['lattice_pub_{}'.format(i+1)].publish(lattice_path_list[i])
         
-        return out_path
-        
-
-    def ego_vehicle_status_callback(self, msg):
-        '''ego vehicle status callback
-        topic   : /Ego_topic
-        msg     : EgoVehicle Status
-            position    : x,y,z position in global coordintae [m]
-            velocity    : x(longitudinal), y(lateral), z, velocity [m/s] in vehicle coordintae
-            accleration : x, y, z, acceleration [m/s^2] in vehicle coordintae
-
-            heading     : vehicle heading [deg]
-            accel       : gas pedal [0~1]
-            brake       : brake     [0~1]
-            wheel_angle : steering wheel angle [deg]
-        '''
-        self.ego_vehicle_status = msg
-        self.is_ego_vehicle_status = True
-
-    def local_path_callback(self, msg):
-        self.local_path = msg
-        self.is_local_path = True
-
-    def object_status_list_callback(self, msg):
-        self.object_status_list = msg
-        self.is_object_status_list = True
-
-
-if __name__ == '__main__':
-    LatticePlanner()
+            self.lattice_path_list = lattice_path_list
+            self.is_lattice_path_list = True
+        else:
+            self.is_lattice_path_list = False
+    

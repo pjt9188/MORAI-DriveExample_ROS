@@ -10,6 +10,8 @@ from .config.config import Config
 
 from .mgeo.calc_mgeo_path import mgeo_dijkstra_path
 
+from nav_msgs.msg import Path
+from .planning.lattice_planner import LatticePlanner
 
 
 class AutonomousDriving:
@@ -29,6 +31,8 @@ class AutonomousDriving:
             )
         self.path_manager.set_velocity_profile(**config['planning']['velocity_profile'])
 
+        self.lattice_planner = LatticePlanner()
+
         self.forward_object_detector = ForwardObjectDetector(config["map"]["traffic_light_list"])
 
         self.adaptive_cruise_control = AdaptiveCruiseControl(
@@ -39,9 +43,24 @@ class AutonomousDriving:
             wheelbase=config['common']['wheelbase'], **config['control']['pure_pursuit']
         )
 
-    def execute(self, vehicle_state, ego_vehicle_status, dynamic_object_list, current_traffic_light):
+    def execute(self, vehicle_state, ego_vehicle_status, dynamic_object_list, object_status_list, current_traffic_light):
+        """ 현재 위치 기반으로 control_input(steering, acc, brake)와 local_path, optimal latticel path를 출력
+            Args:
+                vehicle_state : vehicle_state.VehicleState 객체 형태의 ego vehicle 차량 정보(Point(x, y), yaw, velocity)
+                ego_vehicle_status : morai msg - EgoVehicleStatus 
+                dynamic_object_list : perception.object_info.ObjectInfo 객체의 object info list들
+                object_status_list : morai_msg - ObjectStatusList
+                current_traffic_light :
+
+            Returns:
+                ControlInput : acc_cmd, steering_cmd
+
+        """
         # 현재 위치 기반으로 local path과 planned velocity 추출
         local_path, planned_velocity = self.path_manager.get_local_path(vehicle_state)
+
+        # TODO: Lattice Planner 기반 최적 path
+        optimal_lattice_path = self.lattice_planner.get_optimal_lattice_path(ego_vehicle_status, object_status_list, local_path)
 
         # 전방 장애물 인지
         self.forward_object_detector._dynamic_object_list = dynamic_object_list
@@ -61,4 +80,4 @@ class AutonomousDriving:
         self.pure_pursuit.vehicle_state = vehicle_state
         steering_cmd = self.pure_pursuit.calculate_steering_angle()
 
-        return ControlInput(acc_cmd, steering_cmd), local_path
+        return ControlInput(acc_cmd, steering_cmd), local_path, optimal_lattice_path
