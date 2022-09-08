@@ -46,7 +46,44 @@ class LatticePlanner:
         while not rospy.is_shutdown():
             if self.is_ego_vehicle_status and self.is_local_path and self.is_object_status_list:
                 lattice_path = self.latticePlanner()
+                if self.checkObject(self.local_path, self.object_status_list):      # centerline path(local path)의 경로상 장애물 탐색
+                    lattice_path_index = self.checkCollision(self.object_status_list, lattice_path)
+
+                    # TODO: (7) lattice 경로 메세지 Publish 
+                    self.lattice_path_pub.publish(lattice_path[lattice_path_index])
+                else:
+                    self.lattice_path_pub.publish(lattice_path[0])
             rate.sleep()
+
+    def checkObject(self, ref_path, object_status_list):
+        #TODO: (2) 경로의 waypoint 별 장애물 탐색
+        is_crash = False
+        for object_status in object_status_list.npc_list + object_status_list.obstacle_list + object_status_list.pedestrian_list:
+            for path in ref_path.poses: 
+                distance = np.hypot(object_status.position.x - path.pose.position.x, object_status.position.y - path.pose.position.y)
+                if distance < 2.35: # 장애물의 좌표값이 지역 경로 상의 좌표값과의 직선거리가 2.35 미만일때 충돌이라 판단.
+                    is_crash = True
+                    break
+        
+        return is_crash
+    
+    def checkCollision(self, object_status_list, lattice_path):
+        #TODO: (6) 생성된 충돌회피 경로 중 낮은 비용의 경로 선택
+        selected_lane_idx = -1
+        lane_weight = [0,3,2,1,1,2,3] # reference path
+
+        # object의 현재 위치 기준 path의 위험도 계산
+        for object in object_status_list.npc_list + object_status_list.obstacle_list + object_status_list.pedestrian_list:
+            for lattice_path_idx in range(len(lattice_path)):
+                for path_pose in lattice_path[lattice_path_idx].poses:
+                    distance = np.hypot(object.position.x - path_pose.pose.position.x, object.position.y - path_pose.pose.position.y)
+                    if distance < 1.5:
+                        lane_weight[lattice_path_idx] += 100
+
+        selected_lane_idx = lane_weight.index(min(lane_weight))
+        return selected_lane_idx
+        
+
 
     def latticePlanner(self):
         ref_path = self.local_path
@@ -55,7 +92,7 @@ class LatticePlanner:
         vehicle_pose_y = self.ego_vehicle_status.position.y
         vehicle_velocity = self.ego_vehicle_status.velocity.x
 
-        look_distance = int(vehicle_velocity * 1) *2     # look ahead distance(차량속도 기준 1초 간의 거리의) waypoint 개수
+        look_distance = int(vehicle_velocity * 1) *2     # look ahead distance(차량속도 기준 1초 간의 거리[m]의) 0.5m 간격 waypoint 개수
 
         
         if look_distance < 20 : # 최소 20개 / min 10m   
@@ -70,6 +107,7 @@ class LatticePlanner:
             
             """          
 
+            # 고쳐야할 TODO: ref Path에 중복되는 waypoint 있음 아래 방법 수정 필요
             global_ref_start_point      = (ref_path.poses[0].pose.position.x, ref_path.poses[0].pose.position.y)
             global_ref_start_next_point = (ref_path.poses[1].pose.position.x, ref_path.poses[1].pose.position.y)
 
@@ -92,7 +130,7 @@ class LatticePlanner:
             local_end_point = det_trans_matrix.dot(world_end_point)
             world_ego_vehicle_position = np.array([[vehicle_pose_x], [vehicle_pose_y], [1]])
             local_ego_vehicle_position = det_trans_matrix.dot(world_ego_vehicle_position)
-            lane_off_set = [-3.0, -1.75, -1, 1, 1.75, 3.0]
+            lane_off_set = [0, -3.5, -1.75, -1, 1, 1.75, 3.5]
             local_lattice_points = []
             
             for i in range(len(lane_off_set)):

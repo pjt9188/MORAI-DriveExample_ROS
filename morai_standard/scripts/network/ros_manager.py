@@ -29,10 +29,12 @@ class RosManager:
         self.ego_vehicle_status = EgoVehicleStatus()
         self.object_info_list = []
         self.traffic_light = []
+        self.lattice_path = Path()
 
         self.is_status = False
         self.is_object_info = False
         self.is_traffic_light = False
+        self.is_lattice_path = False
 
     def execute(self):
         print("start simulation")
@@ -40,7 +42,7 @@ class RosManager:
         while not rospy.is_shutdown():
             if self.is_status and self.is_object_info:
                 control_input, local_path = self.autonomous_driving.execute(
-                    self.vehicle_state, self.ego_vehicle_status, self.object_info_list, self.traffic_light
+                    self.vehicle_state, self.ego_vehicle_status, self.object_info_list, self.traffic_light,
                 )
                 self._send_data(control_input, local_path)
         print("end simulation")
@@ -49,7 +51,6 @@ class RosManager:
         # publisher
         self.global_path_pub = rospy.Publisher('/global_path', Path, queue_size=1)
         self.local_path_pub = rospy.Publisher('/local_path', Path, queue_size=1)
-        self.lattice_path_pub = rospy.Publisher('/lattice_path', Path, queue_size=1)
         self.ctrl_pub = rospy.Publisher('/ctrl_cmd', CtrlCmd, queue_size=1)
         self.traffic_light_pub = rospy.Publisher("/SetTrafficLight", SetTrafficLight, queue_size=1)
         self.odom_pub = rospy.Publisher('/odom', Odometry, queue_size=1)
@@ -58,7 +59,8 @@ class RosManager:
         rospy.Subscriber("/Ego_topic", EgoVehicleStatus, self.vehicle_status_callback)
         rospy.Subscriber("/Object_topic", ObjectStatusList, self.object_info_callback)
         rospy.Subscriber("/GetTrafficLightStatus", GetTrafficLightStatus, self.traffic_light_callback)
-
+        rospy.Subscriber("/lattice_path", Path, self.lattice_path_callback)
+    
     def _send_data(self, control_input, local_path):
         self.ctrl_pub.publish(CtrlCmd(**control_input.__dict__))
         self.local_path_pub.publish(self.convert_to_ros_path(local_path, 'map'))
@@ -142,3 +144,7 @@ class RosManager:
 
         self.traffic_light = [data.trafficLightIndex, traffic_light_status]
         self.is_traffic_light = True
+
+    def lattice_path_callback(self, data):
+        self.is_lattice_path = True
+        self.lattice_path = data

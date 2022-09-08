@@ -38,7 +38,7 @@ class AutonomousDriving:
         self.pure_pursuit = PurePursuit(
             wheelbase=config['common']['wheelbase'], **config['control']['pure_pursuit']
         )
-
+    
     def execute(self, vehicle_state, ego_vehicle_status, dynamic_object_list, current_traffic_light):
         # 현재 위치 기반으로 local path과 planned velocity 추출
         local_path, planned_velocity = self.path_manager.get_local_path(vehicle_state)
