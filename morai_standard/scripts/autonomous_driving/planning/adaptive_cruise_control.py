@@ -59,9 +59,9 @@ class AdaptiveCruiseControl:
             # print("CC ON")
             return out_vel
 
-        velocity_error = ego_vel - self.object_velocity
+        velocity_error = ego_vel - self.object_velocity     # velcoity error
 
-        safe_distance = ego_vel*self.time_gap+default_space
+        safe_distance = ego_vel*self.time_gap+default_space     # 안전거리 : time_gap(0.8초) + default space
         distance_error = safe_distance - self.object_distance
 
         acceleration = -(self.velocity_gain*velocity_error + self.distance_gain*distance_error)

@@ -18,7 +18,7 @@
     },
     "planning": {
         "velocity_profile": {
-            "max_velocity": 70,
+            "max_velocity": 57.6,
             "road_friction": 0.15,
             "window_size": 25
         },

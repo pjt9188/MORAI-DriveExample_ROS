@@ -5,8 +5,8 @@ import rospy
 from math import cos,sin,pi,sqrt,pow,atan2
 import numpy as np
 
-from morai_msgs.msg import EgoVehicleStatus, ObjectStatusList
-from geometry_msgs.msg import PoseStamped, Point, Quaternion
+from morai_msgs.msg import EgoVehicleStatus, ObjectStatusList, ObjectStatus
+from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
 
 
@@ -22,27 +22,38 @@ lattice_planner은 충돌 회피 경로 생성 및 선택 예제입니다.
 4. 충돌회피 경로 생성
 5. 생성된 모든 Lattice 충돌 회피 경로 메시지 Publish
 6. 생성된 충돌회피 경로 중 낮은 비용의 경로 선택
-7. 선택 된 새로운 지역경로 (/lattice_path) return
+7. 선택 된 새로운 지역경로 (/lattice_path) 메세지 Publish
 '''
 class LatticePlanner:
     def __init__(self):
+        rospy.init_node('lattice_planner', anonymous=True)
+
         self.ego_vehicle_status = EgoVehicleStatus()
         self.local_path = Path()
         self.object_status_list = ObjectStatusList()
 
-    def get_lattice_path(self, ego_vehicle_status, local_path, object_status_list):
-        self.ego_vehicle_status = ego_vehicle_status
-        self.local_path = convert_to_ros_path(local_path, 'map')
-        self.object_status_list = object_status_list
-        
-        lattice_path = self.latticePlanner()
-        if self.checkObject(self.local_path, self.object_status_list):      # centerline path(local path)의 경로상 장애물 탐색
-            lattice_path_index = self.checkCollision(self.object_status_list, lattice_path)
-            
-            # TODO: (7) lattice 경로 return
-            return lattice_path[lattice_path_index]
-        else:
-            return lattice_path[0]
+        self.is_ego_vehicle_status = False
+        self.is_local_path = False
+        self.is_object_status_list = False
+
+        #TODO: (1) subscriber, publisher 선언
+        rospy.Subscriber('/Ego_topic', EgoVehicleStatus, self.ego_vehicle_status_callback)
+        rospy.Subscriber('/Object_topic', ObjectStatusList, self.object_status_list_callback)
+        rospy.Subscriber('/local_path', Path, self.local_path_callback)
+        self.lattice_path_pub = rospy.Publisher('/lattice_path', Path, queue_size = 1)
+
+        rate = rospy.Rate(30)   # 30hz
+        while not rospy.is_shutdown():
+            if self.is_ego_vehicle_status and self.is_local_path and self.is_object_status_list:
+                lattice_path = self.latticePlanner()
+                if self.checkObject(self.local_path, self.object_status_list):      # centerline path(local path)의 경로상 장애물 탐색
+                    lattice_path_index = self.checkCollision(self.object_status_list, lattice_path)
+
+                    # TODO: (7) lattice 경로 메세지 Publish 
+                    self.lattice_path_pub.publish(lattice_path[lattice_path_index])
+                else:
+                    self.lattice_path_pub.publish(lattice_path[0])
+            rate.sleep()
 
     def checkObject(self, ref_path, object_status_list):
         #TODO: (2) 경로의 waypoint 별 장애물 탐색
@@ -215,15 +226,32 @@ class LatticePlanner:
                 globals()['lattice_pub_{}'.format(i+1)].publish(out_path[i])
         
         return out_path
+        
+
+    def ego_vehicle_status_callback(self, msg):
+        '''ego vehicle status callback
+        topic   : /Ego_topic
+        msg     : EgoVehicle Status
+            position    : x,y,z position in global coordintae [m]
+            velocity    : x(longitudinal), y(lateral), z, velocity [m/s] in vehicle coordintae
+            accleration : x, y, z, acceleration [m/s^2] in vehicle coordintae
+
+            heading     : vehicle heading [deg]
+            accel       : gas pedal [0~1]
+            brake       : brake     [0~1]
+            wheel_angle : steering wheel angle [deg]
+        '''
+        self.ego_vehicle_status = msg
+        self.is_ego_vehicle_status = True
+
+    def local_path_callback(self, msg):
+        self.local_path = msg
+        self.is_local_path = True
+
+    def object_status_list_callback(self, msg):
+        self.object_status_list = msg
+        self.is_object_status_list = True
 
 
-def convert_to_ros_path(path, frame_id):
-    ros_path = Path()
-    ros_path.header.frame_id = frame_id
-    for point in path:
-        pose_stamped = PoseStamped()
-        pose_stamped.pose.position = Point(x=point.x, y=point.y, z=0)
-        pose_stamped.pose.orientation = Quaternion(x=0, y=0, z=0, w=1)
-        ros_path.poses.append(pose_stamped)
-
-    return ros_path
+if __name__ == '__main__':
+    LatticePlanner()
