@@ -10,6 +10,9 @@ from autonomous_driving.vehicle_state import VehicleState
 from autonomous_driving.perception.object_info import ObjectInfo
 from autonomous_driving.config.config import Config
 
+from visualization_msgs.msg import Marker, MarkerArray
+from geometry_msgs.msg import Vector3
+from std_msgs.msg import ColorRGBA
 
 class RosManager:
     def __init__(self, autonomous_driving, config_file = 'config.json'):
@@ -30,6 +33,7 @@ class RosManager:
         self.object_info_list = []
         self.object_status_list = ObjectStatusList()
         self.traffic_light = []
+        self.rviz_markers = MarkerArray()
 
         self.is_status = False
         self.is_object_info = False
@@ -39,6 +43,8 @@ class RosManager:
         print("start simulation")
         self._set_protocol()
         while not rospy.is_shutdown():
+            self._set_rviz_visualization()
+
             if self.is_status and self.is_object_info:
                 control_input, local_path, lattice_path = self.autonomous_driving.execute(
                     self.vehicle_state, self.ego_vehicle_status, self.object_info_list, self.object_status_list, self.traffic_light,
@@ -54,6 +60,7 @@ class RosManager:
         self.ctrl_pub = rospy.Publisher('/ctrl_cmd', CtrlCmd, queue_size=1)
         self.traffic_light_pub = rospy.Publisher("/SetTrafficLight", SetTrafficLight, queue_size=1)
         self.odom_pub = rospy.Publisher('/odom', Odometry, queue_size=1)
+        self.rviz_vehicles_pub = rospy.Publisher('/rviz_vehicles', MarkerArray, queue_size = 1)
 
         # subscriber
         rospy.Subscriber("/Ego_topic", EgoVehicleStatus, self.vehicle_status_callback)
@@ -63,7 +70,7 @@ class RosManager:
     def _send_data(self, control_input, local_path, lattice_path):
         self.ctrl_pub.publish(CtrlCmd(**control_input.__dict__))
         self.local_path_pub.publish(self.convert_to_ros_path(local_path, 'map'))
-        self.local_path_pub.publish(self.convert_to_ros_path(lattice_path, 'map'))
+        self.lattice_path_pub.publish(self.convert_to_ros_path(lattice_path, 'map'))
         self.odom_pub.publish(self.convert_to_odometry(self.vehicle_state))
 
         if self.count == self.sampling_rate:
@@ -71,6 +78,53 @@ class RosManager:
             self.count = 0
         self.count += 1
         self.ros_rate.sleep()
+
+    def _set_rviz_visualization(self):
+        # self.rviz_path_pub = rospy.Publisher('/rviz_path', MarkerArray, queue_size = 1)
+        self.rviz_markers = MarkerArray()
+
+        if self.is_object_info:
+            if self.object_status_list.num_of_npcs > 0:
+                for idx, npc_object_status in enumerate(self.object_status_list.npc_list):
+                    marker = Marker()
+                    marker.header.frame_id = 'map'
+                    marker.ns = 'npc'
+                    marker.id = idx+1
+                    marker.type = marker.CUBE
+                    marker.action = marker.ADD      # 항상 새로 만드는 것은 아니고 ADD와 MODIFY는 동일하다 
+                                                    # http://docs.ros.org/en/noetic/api/visualization_msgs/html/msg/Marker.html                                                    
+                    marker.pose.position = Point(x = npc_object_status.position.x, 
+                                                 y = npc_object_status.position.y,
+                                                 z = 0
+                                                )
+                    quaternion = tf.transformations.quaternion_from_euler(0, 0, np.deg2rad(npc_object_status.heading))
+                    marker.pose.orientation = Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
+                    marker.scale = npc_object_status.size
+                    marker.color = ColorRGBA(1.0, 0.67, 0.11, 1.0)
+                    
+                    self.rviz_markers.markers.append(marker)
+
+        if self.is_status:
+            marker = Marker()
+            marker.header.frame_id = 'map'
+            marker.ns = 'ego'
+            marker.id = 0
+            marker.type = marker.CUBE
+            marker.action = marker.ADD      # 항상 새로 만드는 것은 아니고 ADD와 MODIFY는 동일하다 
+                                            # http://docs.ros.org/en/noetic/api/visualization_msgs/html/msg/Marker.html                                                    
+            marker.pose.position = Point(x = self.ego_vehicle_status.position.x, 
+                                         y = self.ego_vehicle_status.position.y,
+                                         z = 0
+                                        )
+            quaternion = tf.transformations.quaternion_from_euler(0, 0, np.deg2rad(self.ego_vehicle_status.heading))
+            marker.pose.orientation = Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
+            marker.scale = Vector3(4.65, 1.88, 1.51)    # IONIQ 기준
+            marker.color = ColorRGBA(0.427, 0.965, 0.918, 1.0)
+            
+            self.rviz_markers.markers.append(marker)
+
+        
+        self.rviz_vehicles_pub.publish(self.rviz_markers)
 
     @staticmethod
     def convert_to_ros_path(path, frame_id):
