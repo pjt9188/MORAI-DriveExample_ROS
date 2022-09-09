@@ -18,14 +18,14 @@
     },
     "planning": {
         "velocity_profile": {
-            "max_velocity": 57.6,
+            "max_velocity": 72,
             "road_friction": 0.15,
             "window_size": 25
         },
         "adaptive_cruise_control": {
             "velocity_gain": 0.5,
             "distance_gain": 1,
-            "time_gap": 0.8
+            "time_gap": 1
         }
     },
     "control": {

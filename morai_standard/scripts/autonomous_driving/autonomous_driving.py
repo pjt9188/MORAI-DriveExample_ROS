@@ -12,8 +12,6 @@ from .config.config import Config
 
 from .mgeo.calc_mgeo_path import mgeo_dijkstra_path
 
-
-
 class AutonomousDriving:
     def __init__(self, config_file = 'config.json'):
         config = Config(config_file = config_file)
@@ -41,12 +39,14 @@ class AutonomousDriving:
         self.pure_pursuit = PurePursuit(
             wheelbase=config['common']['wheelbase'], **config['control']['pure_pursuit']
         )
+
+        self.behavior_state = 0
     
     def execute(self, vehicle_state, ego_vehicle_status, dynamic_object_list, object_status_list, current_traffic_light):
         # 현재 위치 기반으로 local path과 planned velocity 추출
         local_path, planned_velocity = self.path_manager.get_local_path(vehicle_state)
 
-        lattice_path = self.lattice_planner.get_lattice_path(ego_vehicle_status, local_path, object_status_list)
+        lattice_path, lattice_behavior = self.lattice_planner.get_lattice_path(ego_vehicle_status, local_path, object_status_list)
         lattice_path = convert_to_point_path(lattice_path)
 
         # 전방 장애물 인지
@@ -55,7 +55,7 @@ class AutonomousDriving:
 
         # adaptive cruise control를 활용한 속도 계획
         self.adaptive_cruise_control.check_object(lattice_path, object_info_dic_list, current_traffic_light)
-        target_velocity = self.adaptive_cruise_control.get_target_velocity(vehicle_state.velocity, planned_velocity)
+        target_velocity = self.adaptive_cruise_control.get_target_velocity(vehicle_state.velocity, planned_velocity, lattice_behavior)
         print("target velocity : {}".format(target_velocity))
 
         # 속도 제어를 위한 PID control

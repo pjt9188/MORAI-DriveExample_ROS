@@ -9,7 +9,6 @@ from morai_msgs.msg import EgoVehicleStatus, ObjectStatusList
 from geometry_msgs.msg import PoseStamped, Point, Quaternion
 from nav_msgs.msg import Path
 
-
 '''
 lattice_planner은 충돌 회피 경로 생성 및 선택 예제입니다.
 차량 경로상의 장애물을 탐색하여 충돌 여부의 판단은 지역경로(/local_path) 와 장애물 정보(/Object_topic)를 받아 판단합니다.
@@ -24,11 +23,16 @@ lattice_planner은 충돌 회피 경로 생성 및 선택 예제입니다.
 6. 생성된 충돌회피 경로 중 낮은 비용의 경로 선택
 7. 선택 된 새로운 지역경로 (/lattice_path) return
 '''
-class LatticePlanner:
+LATTICE_BEHAVIOR_DICT = dict(lane_keeping = 0, in_lane_change = 1, lane_change = 2)
+
+class LatticePlanner:    
     def __init__(self):
         self.ego_vehicle_status = EgoVehicleStatus()
         self.local_path = Path()
         self.object_status_list = ObjectStatusList()
+        self.behavior_state = LATTICE_BEHAVIOR_DICT['lane_keeping']
+        self.lane_off_set = [0, -3.5, -1.75, -1, 1, 1.75, 3.5]
+        self.lattice_behavior = [0, 2, 1, 1, 1, 1, 2]
 
     def get_lattice_path(self, ego_vehicle_status, local_path, object_status_list):
         self.ego_vehicle_status = ego_vehicle_status
@@ -40,9 +44,9 @@ class LatticePlanner:
             lattice_path_index = self.checkCollision(self.object_status_list, lattice_path)
             
             # TODO: (7) lattice 경로 return
-            return lattice_path[lattice_path_index]
+            return lattice_path[lattice_path_index], self.lattice_behavior[lattice_path_index]
         else:
-            return lattice_path[0]
+            return lattice_path[0], self.lattice_behavior[0]
 
     def checkObject(self, ref_path, object_status_list):
         #TODO: (2) 경로의 waypoint 별 장애물 탐색
@@ -66,7 +70,7 @@ class LatticePlanner:
             for lattice_path_idx in range(len(lattice_path)):
                 for path_pose in lattice_path[lattice_path_idx].poses:
                     distance = np.hypot(object.position.x - path_pose.pose.position.x, object.position.y - path_pose.pose.position.y)
-                    if distance < 1.5:
+                    if distance < 2.35:
                         lane_weight[lattice_path_idx] += 100
 
         selected_lane_idx = lane_weight.index(min(lane_weight))
@@ -119,11 +123,10 @@ class LatticePlanner:
             local_end_point = det_trans_matrix.dot(world_end_point)
             world_ego_vehicle_position = np.array([[vehicle_pose_x], [vehicle_pose_y], [1]])
             local_ego_vehicle_position = det_trans_matrix.dot(world_ego_vehicle_position)
-            lane_off_set = [0, -3.5, -1.75, -1, 1, 1.75, 3.5]
             local_lattice_points = []
             
-            for i in range(len(lane_off_set)):
-                local_lattice_points.append([local_end_point[0][0], local_end_point[1][0] + lane_off_set[i], 1])
+            for i in range(len(self.lane_off_set)):
+                local_lattice_points.append([local_end_point[0][0], local_end_point[1][0] + self.lane_off_set[i], 1])
             
             #TODO: (4) Lattice 충돌 회피 경로 생성 -> cubit spline으로 변경 필요
             '''
@@ -190,8 +193,8 @@ class LatticePlanner:
                                       [sin(tmp_theta), cos(tmp_theta), tmp_translation[1]],\
                                       [0, 0, 1]])
 
-                    for lane_num in range(len(lane_off_set)) :
-                        local_result = np.array([[0], [lane_off_set[lane_num]], [1]])
+                    for lane_num in range(len(self.lane_off_set)) :
+                        local_result = np.array([[0], [self.lane_off_set[lane_num]], [1]])
                         global_result = tmp_t.dot(local_result)
 
                         read_pose = PoseStamped()
