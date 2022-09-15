@@ -18,7 +18,7 @@
     },
     "planning": {
         "velocity_profile": {
-            "max_velocity": 72,
+            "max_velocity": 70,
             "road_friction": 0.15,
             "window_size": 25
         },
@@ -30,8 +30,8 @@
     },
     "control": {
         "pid": {
-            "p_gain": 0.2,
-            "i_gain": 0.01,
+            "p_gain": 0.075,
+            "i_gain": 0.0001,
             "d_gain": 0.025
         },
         "pure_pursuit": {

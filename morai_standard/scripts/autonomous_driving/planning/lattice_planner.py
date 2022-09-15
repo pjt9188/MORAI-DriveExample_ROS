@@ -23,7 +23,7 @@ lattice_planner은 충돌 회피 경로 생성 및 선택 예제입니다.
 6. 생성된 충돌회피 경로 중 낮은 비용의 경로 선택
 7. 선택 된 새로운 지역경로 (/lattice_path) return
 '''
-LATTICE_BEHAVIOR_DICT = dict(lane_keeping = 0, in_lane_change = 1, lane_change = 2)
+LATTICE_BEHAVIOR_DICT = dict(all_colliding = -1, lane_keeping = 0, in_lane_change = 1, lane_change = 2)
 
 class LatticePlanner:    
     def __init__(self):
@@ -39,16 +39,24 @@ class LatticePlanner:
         self.local_path = convert_to_ros_path(local_path, 'map')
         self.object_status_list = object_status_list
         
+        # lattice path 후보들 경로 생성
         lattice_path = self.latticePlanner()
+        
+        # local path 상에 object가 있는 경우
         if self.checkObject(self.local_path, self.object_status_list):      # centerline path(local path)의 경로상 장애물 탐색
-            lattice_path_index = self.checkCollision(self.object_status_list, lattice_path)
+            # lattice path의 collision 확인
+            lattice_path_index, is_collision_free = self.checkCollision(self.object_status_list, lattice_path)
             
-            # TODO: (7) lattice 경로 return
-            return lattice_path[lattice_path_index], self.lattice_behavior[lattice_path_index]
-        else:
-            return lattice_path[0], self.lattice_behavior[0]
+            if is_collision_free:
+                return lattice_path[lattice_path_index], self.lattice_behavior[lattice_path_index]
+            else:
+                return lattice_path[lattice_path_index], LATTICE_BEHAVIOR_DICT['all_colliding']
+        
+        else: # 없는 경우 center line 경로 반환
+            return lattice_path[0], LATTICE_BEHAVIOR_DICT['lane_keeping']
 
     def checkObject(self, ref_path, object_status_list):
+        """ref_path(local path)의 waypoint 반경 2.35m 안에 차량이 있는지 확인"""
         #TODO: (2) 경로의 waypoint 별 장애물 탐색
         is_crash = False
         for object_status in object_status_list.npc_list + object_status_list.obstacle_list + object_status_list.pedestrian_list:
@@ -57,24 +65,31 @@ class LatticePlanner:
                 if distance < 2.35: # 장애물의 좌표값이 지역 경로 상의 좌표값과의 직선거리가 2.35 미만일때 충돌이라 판단.
                     is_crash = True
                     break
-        
         return is_crash
     
     def checkCollision(self, object_status_list, lattice_path):
         #TODO: (6) 생성된 충돌회피 경로 중 낮은 비용의 경로 선택
+        is_collsion_free = True
         selected_lane_idx = -1
         lane_weight = [0,3,2,1,1,2,3] # reference path
 
         # object의 현재 위치 기준 path의 위험도 계산
+        # 현재 object 들에 대해서
         for object in object_status_list.npc_list + object_status_list.obstacle_list + object_status_list.pedestrian_list:
+            # 모든 lattice path들에서
             for lattice_path_idx in range(len(lattice_path)):
+                # 각각의 lattice path의 waypoint 마다
                 for path_pose in lattice_path[lattice_path_idx].poses:
                     distance = np.hypot(object.position.x - path_pose.pose.position.x, object.position.y - path_pose.pose.position.y)
-                    if distance < 2.35:
+                    if distance < 3: # 거리가 2.35m보다 작은 경우, 충돌로 판단 lane에 weight 추가
                         lane_weight[lattice_path_idx] += 100
 
         selected_lane_idx = lane_weight.index(min(lane_weight))
-        return selected_lane_idx
+        if lane_weight[selected_lane_idx] > 100:
+            print("lattice palnner : 전부 충돌 예상됨")
+            selected_lane_idx = 0
+            is_collsion_free = False
+        return selected_lane_idx, is_collsion_free
         
 
 
@@ -83,6 +98,7 @@ class LatticePlanner:
         out_path = []
         vehicle_pose_x = self.ego_vehicle_status.position.x
         vehicle_pose_y = self.ego_vehicle_status.position.y
+        vehicle_yaw    = np.deg2rad(self.ego_vehicle_status.heading)
         vehicle_velocity = self.ego_vehicle_status.velocity.x
 
         look_distance = int(vehicle_velocity * 1) *2     # look ahead distance(차량속도 기준 1초 간의 거리[m]의) 0.5m 간격 waypoint 개수
@@ -99,7 +115,6 @@ class LatticePlanner:
             # 경로 생성이 끝나는 Point 좌표의 상대 위치를 계산해야 합니다.
             
             """          
-
             # 고쳐야할 TODO: ref Path에 중복되는 waypoint 있음 아래 방법 수정 필요
             global_ref_start_point      = (ref_path.poses[0].pose.position.x, ref_path.poses[0].pose.position.y)
             global_ref_start_next_point = (ref_path.poses[1].pose.position.x, ref_path.poses[1].pose.position.y)
@@ -110,9 +125,9 @@ class LatticePlanner:
             translation = [global_ref_start_point[0], global_ref_start_point[1]]
             
             # local_path2global
-            trans_matrix    = np.array([    [cos(theta),                -sin(theta),                                                                      translation[0]], 
-                                            [sin(theta),                 cos(theta),                                                                      translation[1]], 
-                                            [         0,                          0,                                                                                  1 ]     ])
+            trans_matrix    = np.array([    [cos(theta),  -sin(theta),    translation[0]], 
+                                            [sin(theta),   cos(theta),    translation[1]], 
+                                            [ 0,           0,             1             ]])
 
             # global2local_path
             det_trans_matrix = np.array([   [trans_matrix[0][0], trans_matrix[1][0],        -(trans_matrix[0][0] * translation[0] + trans_matrix[1][0] * translation[1])], 
@@ -154,17 +169,24 @@ class LatticePlanner:
                     x.append(i*x_interval)
                 
                 # 3차 곡선 계획의 계수 [B.C. : y(x=0)=0, y(xf) = yf, dydx(x=0) = 0, dydx(xf)=0]
+                # a = [0.0, 0.0, 0.0, 0.0]
+                # a[0] = ps
+                # a[1] = 0
+                # a[2] = 3.0 * (pf - ps) / (xf * xf)
+                # a[3] = -2.0 * (pf - ps) / (xf * xf * xf)
+
+                # 3차 곡선 계획의 계수 [B.C. : dydx(x=0) = tan(yaw - start angle of path)]
                 a = [0.0, 0.0, 0.0, 0.0]
                 a[0] = ps
-                a[1] = 0
-                a[2] = 3.0 * (pf - ps) / (xf * xf)
-                a[3] = -2.0 * (pf - ps) / (xf * xf * xf)
-                
+                a[1] = np.tan(vehicle_yaw-theta)
+                a[3] = (2*ps - 2*pf + a[1]*xf) / (xf**3)
+                a[2] = (-a[1] - 3*a[3]*(xf**2))/ (2*xf)
+
                 # 
                 for i in x:
                     result = a[3] * i * i * i + a[2] * i * i + a[1] * i + a[0]
                     y.append(result)
-
+                
                 for i in range(0,len(y)) :
                     local_result = np.array([[x[i]], [y[i]], [1]])
                     global_result = trans_matrix.dot(local_result)
@@ -173,6 +195,7 @@ class LatticePlanner:
                     read_pose.pose.position.x = global_result[0][0]
                     read_pose.pose.position.y = global_result[1][0]
                     read_pose.pose.position.z = 0
+                    ## TODO: yaw 계산도 해야할듯
                     read_pose.pose.orientation.x = 0
                     read_pose.pose.orientation.y = 0
                     read_pose.pose.orientation.z = 0

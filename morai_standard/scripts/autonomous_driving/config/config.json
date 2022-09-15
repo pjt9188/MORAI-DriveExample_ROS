@@ -29,8 +29,8 @@
     },
     "control": {
         "pid": {
-            "p_gain": 0.2,
-            "i_gain": 0.01,
+            "p_gain": 0.075,
+            "i_gain": 0.0001,
             "d_gain": 0.025
         },
         "pure_pursuit": {
