@@ -44,7 +44,6 @@ class RosManager:
         self._set_protocol()
         while not rospy.is_shutdown():
             self._set_rviz_visualization()
-
             if self.is_status and self.is_object_info:
                 control_input, local_path, lattice_path = self.autonomous_driving.execute(
                     self.vehicle_state, self.ego_vehicle_status, self.object_info_list, self.object_status_list, self.traffic_light,
@@ -82,7 +81,6 @@ class RosManager:
     def _set_rviz_visualization(self):
         # self.rviz_path_pub = rospy.Publisher('/rviz_path', MarkerArray, queue_size = 1)
         self.rviz_markers = MarkerArray()
-
         if self.is_object_info:
             if self.object_status_list.num_of_npcs > 0:
                 for idx, npc_object_status in enumerate(self.object_status_list.npc_list):
@@ -97,7 +95,7 @@ class RosManager:
                                                  y = npc_object_status.position.y,
                                                  z = 0
                                                 )
-                    quaternion = tf.transformations.quaternion_from_euler(0, 0, np.deg2rad(npc_object_status.heading))
+                    quaternion = tf.transformations.quaternion_from_euler(0, 0, npc_object_status.heading)
                     marker.pose.orientation = Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
                     marker.scale = npc_object_status.size
                     marker.color = ColorRGBA(1.0, 0.67, 0.11, 1.0)
@@ -116,7 +114,7 @@ class RosManager:
                                          y = self.ego_vehicle_status.position.y,
                                          z = 0
                                         )
-            quaternion = tf.transformations.quaternion_from_euler(0, 0, np.deg2rad(self.ego_vehicle_status.heading))
+            quaternion = tf.transformations.quaternion_from_euler(0, 0, self.ego_vehicle_status.heading)
             marker.pose.orientation = Quaternion(x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3])
             marker.scale = Vector3(4.65, 1.88, 1.51)    # IONIQ 기준
             marker.color = ColorRGBA(0.427, 0.965, 0.918, 1.0)
@@ -153,20 +151,33 @@ class RosManager:
 
     def vehicle_status_callback(self, data):
         '''vehicle status callback
-        topic   : /Ego_topic
-        msg     : EgoVehicle Status
-            position    : x,y,z position in global coordintae
-            velocity    : x(longitudinal), y(lateral), z, velocity [m/s] in vehicle coordintae
-            accleration : x, y, z, acceleration [m/s^2] in vehicle coordintae
 
-            heading     : vehicle heading [deg]
-            accel       : gas pedal [0~1]
-            brake       : brake     [0~1]
-            wheel_angle : steering wheel angle [deg]
-        '''
+        Parameters
+        ---------------------
+        data : msg(EgoVehicleStatus)
+            topic   : /Ego_topic
+            msg     : EgoVehicleStatus
+                position    : x,y,z position in global coordintae
+                velocity    : x(longitudinal), y(lateral), z, velocity [m/s] in vehicle coordintae
+                accleration : x, y, z, acceleration [m/s^2] in vehicle coordintae
+
+                heading     : vehicle heading [deg]
+                accel       : gas pedal [0~1]
+                brake       : brake     [0~1]
+                wheel_angle : steering wheel angle [deg]
+
+
+        Set Instance Variables
+        ------------------------------
+        self.vehicle_state : autonomous_driving.vehicle_state.VehicleState
+                                position : localization.point.Point(x, y)
+                                yaw : vehicle global yaw[rad]
+                                velcoity : vehicle longitudinal velocity [m/s]
+
+        self.ego_vehicle_status : morai_msgs.msg.EgoVehicleStatus
+                                    save the original ego vehicle status data (heading -> rad으로 변경함)
+        '''     
         self.vehicle_state = VehicleState(data.position.x, data.position.y, np.deg2rad(data.heading), data.velocity.x)
-        self.ego_vehicle_status = data
-        # print(self.ego_vehicle_status)
         br = tf.TransformBroadcaster()
         br.sendTransform(
             (self.vehicle_state.position.x, self.vehicle_state.position.y, 0),
@@ -175,14 +186,82 @@ class RosManager:
             "gps",
             "map"
         )
+
+        # Ego Vehicle Status heading deg -> rad
+        self.ego_vehicle_status = data      # class instance의 경우 복사가 이루어지지 않고, 객체를 참조함 (data와 self.ego_vehicle_status가 동일해짐)
+        self.ego_vehicle_status.heading = np.deg2rad(self.ego_vehicle_status.heading) # data의 heading을 rad으로 변환
+
         self.is_status = True
 
     def object_info_callback(self, data):
-        self.object_status_list = data
+        '''object info callback
+
+        Parameters
+        ---------------------
+        data : morai_msgs.msg.EgoVehicleStatus
+            topic   : /Object_topic, 
+            msg     : ObjectStatusList
+                header              : std_msgs.msg.Header
+                num_of_npcs         : int32
+                num_of_pedestrian   : int32
+                num_of_obstacle     : int32
+
+                npc_list            : list of morai_msgs.msg.ObjectStatus
+                pedestrian_list     : list of morai_msgs.msg.ObjectStatus
+                obstacle_list       : list of morai_msgs.msg.ObjectStatus
+
+            
+                morai_msgs.msg.ObjectStatus
+                    unique_id   : int32
+                    type        : int32
+                                    object_type (0: Pedestrian, 1: NPC vehicle, 2: Static object (obstacle), -1: Ego-vehicle)
+                    name        : string
+
+                    size        : width, length, hight [m]
+                    position    : x, y, z [m] (global)
+                    velocity    : x(longitudinal), y(lateral), z, velocity [km/h] in vehicle coordintae
+                    accleration : x, y, z, acceleration [m/s^2] in vehicle coordinate
+                    heading     : vehicle heading [deg]
+
+        Set Instance Variables
+        ------------------------------
+        self.object_info_list : lists of perception.object_info.ObjectInfo
+                                position : localization.point.Point(x, y)
+                                velocity : x(longitudinal) velocity [m/s] in vehicle coordintae
+                                type : object_type
+                                        (0: Pedestrian, 1: NPC vehicle, 2: Static object (obstacle), -1: Ego-vehicle)
+                                
+
+        self.object_status_list  : morai_msgs.msg.ObjectStatusList
+                                    save the object status list data 
+                                    (velocity -> m/s, heading -> rad으로 변환)
+        '''     
         self.object_info_list = [
-            ObjectInfo(data.position.x, data.position.y, data.velocity.x, data.type)
-            for data in data.npc_list + data.obstacle_list + data.pedestrian_list
+            ObjectInfo(object_status.position.x, object_status.position.y, object_status.velocity.x / 3.6, object_status.type)
+            for object_status in data.npc_list + data.obstacle_list + data.pedestrian_list
         ]
+        
+        self.object_status_list = data
+
+        # Object_status_list m/s 로 변환
+        for i in range(data.num_of_npcs):
+            self.object_status_list.npc_list[i].velocity.x = self.object_status_list.npc_list[i].velocity.x / 3.6
+            self.object_status_list.npc_list[i].velocity.y = self.object_status_list.npc_list[i].velocity.y / 3.6
+            self.object_status_list.npc_list[i].velocity.z = self.object_status_list.npc_list[i].velocity.z / 3.6
+            self.object_status_list.npc_list[i].heading = np.deg2rad(self.object_status_list.npc_list[i].heading)
+
+        for i in range(data.num_of_pedestrian):
+            self.object_status_list.pedestrian_list[i].velocity.x = self.object_status_list.pedestrian_list[i].velocity.x / 3.6
+            self.object_status_list.pedestrian_list[i].velocity.y = self.object_status_list.pedestrian_list[i].velocity.y / 3.6
+            self.object_status_list.pedestrian_list[i].velocity.z = self.object_status_list.pedestrian_list[i].velocity.z / 3.6
+            self.object_status_list.pedestrian_list[i].heading = np.deg2rad(self.object_status_list.pedestrian_list[i].heading)
+
+        for i in range(data.num_of_obstacle):
+            self.object_status_list.obstacle_list[i].velocity.x = self.object_status_list.obstacle_list[i].velocity.x / 3.6
+            self.object_status_list.obstacle_list[i].velocity.y = self.object_status_list.obstacle_list[i].velocity.y / 3.6
+            self.object_status_list.obstacle_list[i].velocity.z = self.object_status_list.obstacle_list[i].velocity.z / 3.6
+            self.object_status_list.obstacle_list[i].heading = np.deg2rad(self.object_status_list.obstacle_list[i].heading)
+        
         self.is_object_info = True
 
     def traffic_light_callback(self, data):

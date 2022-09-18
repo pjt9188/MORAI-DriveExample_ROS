@@ -7,6 +7,17 @@ from math import sqrt,pi
 
 
 class PathManager:
+    """
+    Refernece Global Path를 관리해주는 Class
+    
+    Global Path의 Reference Target Velocity Profile와 추종해야할 Local Path를 만들어 주는 class
+
+    Parameters
+    ------------------
+    path : list of localization.point.Point Instance
+            Point 클래스(x, y)로 이루어진 Global Path
+    """
+
     def __init__(self, path, is_closed_path, local_path_size):
         self.path = path
         self.is_closed_path = is_closed_path
@@ -76,6 +87,10 @@ class PathManager:
     def get_local_path(self, vehicle_state):
         ''' 
         reference waypoint에서 현재 차량 기준 local waypoint(global 좌표계) 및 target velocity 반환
+
+        Parameters
+        -----------------
+        vehicle_state : autonomous_driving.vehicle_state.VehicleState 
         '''
         # TODO: 최소값 구하는 로직 개선 필요.
         min_distance=float('inf')

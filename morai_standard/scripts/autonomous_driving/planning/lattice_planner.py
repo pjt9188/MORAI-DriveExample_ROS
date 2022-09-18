@@ -98,7 +98,7 @@ class LatticePlanner:
         out_path = []
         vehicle_pose_x = self.ego_vehicle_status.position.x
         vehicle_pose_y = self.ego_vehicle_status.position.y
-        vehicle_yaw    = np.deg2rad(self.ego_vehicle_status.heading)
+        vehicle_yaw    = self.ego_vehicle_status.heading
         vehicle_velocity = self.ego_vehicle_status.velocity.x
 
         look_distance = int(vehicle_velocity * 1) *2     # look ahead distance(차량속도 기준 1초 간의 거리[m]의) 0.5m 간격 waypoint 개수

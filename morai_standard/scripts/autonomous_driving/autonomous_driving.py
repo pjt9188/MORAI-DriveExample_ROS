@@ -12,8 +12,6 @@ from .config.config import Config
 
 from .mgeo.calc_mgeo_path import mgeo_dijkstra_path
 
-import matplotlib.pyplot as plt
-
 class AutonomousDriving:
     def __init__(self, config_file = 'config.json'):
         config = Config(config_file = config_file)

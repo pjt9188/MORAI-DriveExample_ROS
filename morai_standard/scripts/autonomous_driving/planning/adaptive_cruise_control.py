@@ -46,7 +46,7 @@ class AdaptiveCruiseControl:
                         min_relative_distance = relative_distance       # 상대거리, type
                         self.object_type = object_type                  # type
                         self.object_distance = relative_distance - self.vehicle_length  # 차두로부터 거리
-                        self.object_velocity = object_info.velocity / 3.6     # object의 종방향 속도 저장 (object status의 속도 단위 kph ->mps로 교체 필요)
+                        self.object_velocity = object_info.velocity    # object의 종방향 속도 저장 (object status의 속도 단위 kph ->mps로 교체 필요)
 
     def get_target_velocity(self, ego_vel, target_vel, lattice_behavior):
         """ 
