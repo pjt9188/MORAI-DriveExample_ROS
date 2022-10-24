@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="cams_planner" type="main.py" name="cams_planner" output="screen" />
+</launch>

@@ -6,17 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /Path1
-        - /Path2
-        - /TF1
-        - /lattice_path1
-        - /lattice_path_11
-        - /lattice_path_21
-        - /lattice_path_31
-        - /lattice_path_41
-        - /lattice_path_51
-        - /lattice_path_61
-        - /lattice_path_71
       Splitter Ratio: 0.5
     Tree Height: 623
   - Class: rviz/Selection
@@ -73,7 +62,7 @@ Visualization Manager:
       Length: 0.30000001192092896
       Line Style: Lines
       Line Width: 0.029999999329447746
-      Name: Path
+      Name: global_path
       Offset:
         X: 0
         Y: 0
@@ -96,7 +85,7 @@ Visualization Manager:
       Length: 0.30000001192092896
       Line Style: Lines
       Line Width: 0.10000000149011612
-      Name: Path
+      Name: local_path
       Offset:
         X: 0
         Y: 0
@@ -137,7 +126,7 @@ Visualization Manager:
       Buffer Length: 1
       Class: rviz/Path
       Color: 25; 255; 0
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -155,12 +144,12 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /lattice_path
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 255; 255; 255
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -178,12 +167,12 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /lattice_path_1
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 255; 255; 255
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -201,12 +190,12 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /lattice_path_2
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 255; 255; 255
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -224,12 +213,12 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /lattice_path_3
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 255; 255; 255
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -247,12 +236,12 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /lattice_path_4
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 255; 255; 255
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -270,12 +259,12 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /lattice_path_5
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 255; 255; 255
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -293,12 +282,12 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /lattice_path_6
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
       Color: 255; 255; 255
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -316,15 +305,37 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /lattice_path_7
       Unreliable: false
-      Value: true
+      Value: false
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /rviz_vehicles
       Name: MarkerArray
       Namespaces:
         ego: true
-        npc: true
       Queue Size: 100
+      Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Head Diameter: 0.30000001192092896
+      Head Length: 0.20000000298023224
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: cams_path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 85; 255
+      Pose Style: None
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
+      Topic: /cams_path
+      Unreliable: false
       Value: true
   Enabled: true
   Global Options:
